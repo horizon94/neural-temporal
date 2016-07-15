@@ -1,4 +1,4 @@
-package org.apache.ctakes.temporal.ae;
+package org.chboston.cnlp.temporal.neural;
 
 import java.util.ArrayList;
 import java.util.Arrays;
