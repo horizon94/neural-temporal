@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.chboston.cnlp.temporal.neural.eval;
+package org.apache.ctakes.temporal.eval;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -35,17 +35,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.ctakes.neural.ScriptStringFeatureDataWriter;
 import org.apache.ctakes.relationextractor.eval.RelationExtractorEvaluation.HashableArguments;
+import org.apache.ctakes.temporal.ae.EventTimeCNNAnnotator;
+import org.apache.ctakes.temporal.ae.TemporalRelationExtractorAnnotator;
 //import org.apache.ctakes.temporal.ae.EventTimeSyntacticAnnotator;
 //import org.apache.ctakes.temporal.ae.EventTimeRelationAnnotator;
 //import org.apache.ctakes.temporal.ae.EventEventRelationAnnotator;
 import org.apache.ctakes.temporal.ae.baselines.RecallBaselineEventTimeRelationAnnotator;
 import org.apache.ctakes.temporal.eval.EvaluationOfEventTimeRelations.ParameterSettings;
-import org.apache.ctakes.temporal.eval.EvaluationOfTemporalRelations_ImplBase;
-import org.apache.ctakes.temporal.eval.Evaluation_ImplBase;
-import org.apache.ctakes.temporal.eval.I2B2Data;
-import org.apache.ctakes.temporal.eval.THYMEData;
+import org.apache.ctakes.temporal.keras.KerasStringOutcomeDataWriter;
+import org.apache.ctakes.temporal.keras.ScriptStringFeatureDataWriter;
 //import org.apache.ctakes.temporal.ae.feature.selection.ZscoreNormalizationExtractor; //for normalization
 //import org.apache.ctakes.temporal.eval.Evaluation_ImplBase.WriteI2B2XML;
 //import org.apache.ctakes.temporal.eval.Evaluation_ImplBase.XMLFormat;
@@ -75,7 +74,6 @@ import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.tcas.Annotation;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.util.FileUtils;
-import org.chboston.cnlp.temporal.neural.EventTimeCNNAnnotator;
 import org.cleartk.eval.AnnotationStatistics;
 import org.cleartk.ml.CleartkAnnotator;
 import org.cleartk.ml.jar.DefaultDataWriterFactory;
@@ -85,7 +83,6 @@ import org.cleartk.ml.jar.GenericJarClassifierFactory;
 //import org.cleartk.ml.feature.transform.InstanceDataWriter;//for normalization
 //import org.cleartk.ml.feature.transform.InstanceStream;//for normalization
 import org.cleartk.ml.jar.JarClassifierBuilder;
-import org.cleartk.ml.python.keras.KerasStringOutcomeDataWriter;
 //import org.cleartk.ml.tksvmlight.TkSvmLightStringOutcomeDataWriter;
 import org.cleartk.ml.tksvmlight.model.CompositeKernel.ComboOperator;
 import org.cleartk.util.ViewUriUtil;
@@ -312,23 +309,24 @@ EvaluationOfTemporalRelations_ImplBase{
 				aggregateBuilder.add(AnalysisEngineFactory.createEngineDescription(RemoveGoldAttributes.class));
 			}
 			if (this.useClosure) {
-				aggregateBuilder.add(AnalysisEngineFactory.createEngineDescription(AddClosure.class));//aggregateBuilder.add(AnalysisEngineFactory.createPrimitiveDescription(AddTransitiveContainsRelations.class));
+//				aggregateBuilder.add(AnalysisEngineFactory.createEngineDescription(AddClosure.class));//aggregateBuilder.add(AnalysisEngineFactory.createPrimitiveDescription(AddTransitiveContainsRelations.class));
 				//			aggregateBuilder.add(AnalysisEngineFactory.createPrimitiveDescription(AddContain2Overlap.class));
 				//			aggregateBuilder.add(AnalysisEngineFactory.createPrimitiveDescription(AddTransitiveBeforeAndOnRelations.class));
 			}
 //			aggregateBuilder.add(AnalysisEngineFactory.createPrimitiveDescription(RemoveNonContainsRelations.class));
 			//		aggregateBuilder.add(AnalysisEngineFactory.createPrimitiveDescription(AddFlippedOverlap.class));//add flipped overlap instances to training data
 
+			aggregateBuilder.add(AnalysisEngineFactory.createEngineDescription(RemoveEventEventRelations.class));
+			aggregateBuilder.add(AnalysisEngineFactory.createEngineDescription(RemoveNonContainsRelations.class));
+			
 			aggregateBuilder.add(AnalysisEngineFactory.createEngineDescription(Overlap2Contains.class));
 
-			aggregateBuilder.add(AnalysisEngineFactory.createEngineDescription(RemoveEventEventRelations.class));
-//			aggregateBuilder.add(AnalysisEngineFactory.createEngineDescription(RemoveNonContainsRelations.class));
 
 			//count how many sentences have timex, and how many sentences have only one timex
 			//aggregateBuilder.add(AnalysisEngineFactory.createEngineDescription(CountSentenceContainsTimes.class));
 
 			//add unlabeled nearby system events as potential links: 
-			aggregateBuilder.add(AnalysisEngineFactory.createEngineDescription(AddPotentialRelations.class));
+//			aggregateBuilder.add(AnalysisEngineFactory.createEngineDescription(AddPotentialRelations.class));
 
 			//directory = new File(directory,"event-time");//for normalization
 
@@ -437,9 +435,9 @@ EvaluationOfTemporalRelations_ImplBase{
 				CAS.NAME_DEFAULT_SOFA,
 				GOLD_VIEW_NAME);
 
-//		aggregateBuilder.add(AnalysisEngineFactory.createEngineDescription(RemoveNonContainsRelations.class),
-//				CAS.NAME_DEFAULT_SOFA,
-//				GOLD_VIEW_NAME);
+		aggregateBuilder.add(AnalysisEngineFactory.createEngineDescription(RemoveNonContainsRelations.class),
+				CAS.NAME_DEFAULT_SOFA,
+				GOLD_VIEW_NAME);
 		//		aggregateBuilder.add(AnalysisEngineFactory.createEngineDescription(RemoveNonUMLSEtEvents.class));
 
 		aggregateBuilder.add(AnalysisEngineFactory.createEngineDescription(RemoveRelations.class));

@@ -1,4 +1,4 @@
-package org.chboston.cnlp.temporal.neural;
+package org.apache.ctakes.temporal.ae;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -29,7 +29,7 @@ import com.google.common.collect.Lists;
 
 public class EventTimeCNNAnnotator extends CleartkAnnotator<String> {
 
-	public static final String NO_RELATION_CATEGORY = "-NONE-";
+	public static final String NO_RELATION_CATEGORY = "none";//-NONE-
 
 	public EventTimeCNNAnnotator() {
 		// TODO Auto-generated constructor stub
@@ -81,14 +81,16 @@ public class EventTimeCNNAnnotator extends CleartkAnnotator<String> {
 				List<Feature> feats = new ArrayList<>();
 				String[] tokens = context.split(" ");
 				for (String token: tokens){
-					feats.add(new Feature(token));
+					feats.add(new Feature(token.toLowerCase()));
 				}
 
 				// during training, feed the features to the data writer
 				if (this.isTraining()) {
 					String category = getRelationCategory(relationLookup, arg1, arg2);
 					if (category == null) {
-						category = NO_RELATION_CATEGORY;
+						category = NO_RELATION_CATEGORY.toLowerCase();
+					}else{
+						category = category.toLowerCase();
 					}
 					this.dataWriter.write(new Instance<>(category, feats));
 				}
@@ -98,17 +100,25 @@ public class EventTimeCNNAnnotator extends CleartkAnnotator<String> {
 					String predictedCategory = this.classifier.classify(feats);
 
 					// add a relation annotation if a true relation was predicted
-					if (predictedCategory != null && !predictedCategory.equals(NO_RELATION_CATEGORY)) {
+					if (predictedCategory != null && !predictedCategory.equals(NO_RELATION_CATEGORY.toLowerCase())) {
 
 						// if we predict an inverted relation, reverse the order of the arguments
 						if (predictedCategory.endsWith("-1")) {
 							predictedCategory = predictedCategory.substring(0, predictedCategory.length() - 2);
-							IdentifiedAnnotation temp = arg1;
-							arg1 = arg2;
-							arg2 = temp;
+							if(arg1 instanceof TimeMention){
+								IdentifiedAnnotation temp = arg1;
+								arg1 = arg2;
+								arg2 = temp;
+							}
+						}else{
+							if(arg1 instanceof EventMention){
+								IdentifiedAnnotation temp = arg1;
+								arg1 = arg2;
+								arg2 = temp;
+							}
 						}
 
-						createRelation(jCas, arg1, arg2, predictedCategory, 0.0);
+						createRelation(jCas, arg1, arg2, predictedCategory.toUpperCase(), 0.0);
 					}
 				}
 			}
@@ -116,27 +126,65 @@ public class EventTimeCNNAnnotator extends CleartkAnnotator<String> {
 		}
 	}
 
-	protected String getRelationCategory(
-			Map<List<Annotation>, BinaryTextRelation> relationLookup,
+	/**
+	 * original way of getting label
+	 * @param relationLookup
+	 * @param arg1
+	 * @param arg2
+	 * @return
+	 */
+	//	protected String getRelationCategory(
+	//			Map<List<Annotation>, BinaryTextRelation> relationLookup,
+	//			IdentifiedAnnotation arg1,
+	//			IdentifiedAnnotation arg2) {
+	//		BinaryTextRelation relation = relationLookup.get(Arrays.asList(arg1, arg2));
+	//		String category = null;
+	//		if (relation != null) {
+	//			category = relation.getCategory();
+	//		} else {
+	//			relation = relationLookup.get(Arrays.asList(arg2, arg1));
+	//			if (relation != null) {
+	//				if(relation.getCategory().equals("OVERLAP")){
+	//					category = relation.getCategory();
+	//				}else{
+	//					category = relation.getCategory() + "-1";
+	//				}
+	//			}
+	//		}
+	//
+	//		return category;
+	//	}
+
+	/** Dima's way of getting lables
+	 * @param relationLookup
+	 * @param arg1
+	 * @param arg2
+	 * @return
+	 */
+	protected String getRelationCategory(Map<List<Annotation>, BinaryTextRelation> relationLookup,
 			IdentifiedAnnotation arg1,
-			IdentifiedAnnotation arg2) {
+			IdentifiedAnnotation arg2){
 		BinaryTextRelation relation = relationLookup.get(Arrays.asList(arg1, arg2));
 		String category = null;
 		if (relation != null) {
 			category = relation.getCategory();
+			if(arg1 instanceof EventMention){
+				category = category + "-1";
+			}
 		} else {
 			relation = relationLookup.get(Arrays.asList(arg2, arg1));
 			if (relation != null) {
-				if(relation.getCategory().equals("OVERLAP")){
-					category = relation.getCategory();
-				}else{
-					category = relation.getCategory() + "-1";
+				category = relation.getCategory();
+				if(arg2 instanceof EventMention){
+					category = category + "-1";
 				}
 			}
 		}
 
 		return category;
+
 	}
+
 
 	protected void createRelation(JCas jCas, IdentifiedAnnotation arg1,
 			IdentifiedAnnotation arg2, String predictedCategory, double confidence) {
@@ -157,8 +205,8 @@ public class EventTimeCNNAnnotator extends CleartkAnnotator<String> {
 	}
 
 	private List<IdentifiedAnnotationPair> getCandidateRelationArgumentPairs(JCas jCas, Sentence sentence) {
-		Map<EventMention, Collection<EventMention>> coveringMap =
-				JCasUtil.indexCovering(jCas, EventMention.class, EventMention.class);
+		//		Map<EventMention, Collection<EventMention>> coveringMap =
+		//				JCasUtil.indexCovering(jCas, EventMention.class, EventMention.class);
 
 		List<IdentifiedAnnotationPair> pairs = Lists.newArrayList();
 		for (EventMention event : JCasUtil.selectCovered(jCas, EventMention.class, sentence)) {
@@ -172,10 +220,10 @@ public class EventTimeCNNAnnotator extends CleartkAnnotator<String> {
 				if(this.isTraining()){//if training mode, train on both gold event and span-overlapping system events
 					for (TimeMention time : JCasUtil.selectCovered(jCas, TimeMention.class, sentence)) {
 
-						Collection<EventMention> eventList = coveringMap.get(event);
-						for(EventMention covEvent : eventList){
-							pairs.add(new IdentifiedAnnotationPair(covEvent, time));
-						}
+						//						Collection<EventMention> eventList = coveringMap.get(event);
+						//						for(EventMention covEvent : eventList){
+						//							pairs.add(new IdentifiedAnnotationPair(covEvent, time));
+						//						}
 						pairs.add(new IdentifiedAnnotationPair(event, time));
 					}
 				}else{//if testing mode, only test on system generated events
