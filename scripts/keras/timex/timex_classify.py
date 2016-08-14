@@ -35,20 +35,24 @@ def main(args):
                 break
             
             if line == 'EOS':
-                actual_len = len(feats)
-                padded_feats = pad_sequences( [feats], input_seq_len)
-                outputs = model.predict(np.array(padded_feats))
-                output_labels = []
-                
-                for ind in range(actual_len):
-                    pred_class = outputs[0][ind].argmax()
-                    label = label_lookup[pred_class]
-                    output_labels.append(label)
-                    
-                print("Output is %s, %s" % (str(outputs), output_labels))
+                model.reset_states()
+                feats = []
+                ctk_io.print_label("O")
             else:
-                feats.append(ctk_io.read_bio_feat_with_alphabet(line, feature_alphabet))
-        
+                feat = [ctk_io.read_bio_feats_with_alphabet(line, feature_alphabet)]
+                outputs = model.predict(np.array([feat]))
+                #output_labels = []
+                pred_class = outputs[0].argmax()
+                label = label_lookup[pred_class]
+                ctk_io.print_label(label)
+                #print("Output is %s\n%s" % ( str(outputs), label))
+                #for ind in range(actual_len):
+#                     pred_class = outputs[0][ind].argmax()
+#                     label = label_lookup[pred_class]
+#                     output_labels.append(label)
+            
+                #print("Output is %s, %s" % (str(outputs), output_labels))
+                        
         except Exception as e:
             print("Exception thrown: %s" % (e))
 

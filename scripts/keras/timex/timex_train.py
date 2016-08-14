@@ -12,7 +12,7 @@ from keras.layers.wrappers import TimeDistributed
 from keras.layers.embeddings import Embedding
 from keras.layers import LSTM
 
-epochs=1
+epochs=20
 batch_size=64
 
 def main(args):

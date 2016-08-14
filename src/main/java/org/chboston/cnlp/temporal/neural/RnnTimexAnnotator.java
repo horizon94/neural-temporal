@@ -76,14 +76,15 @@ public class RnnTimexAnnotator extends TemporalEntityAnnotator_ImplBase {
         tokenIndex++;
       }
       
-      // At the end of sentence, at train time write a dummy instance to indicate EOS, at test time
+      // At the end of sentence, write a dummy instance to indicate EOS, at test time
       // compile the labels into chunks and build time expressions:
-      if(this.isTraining()){
-        List<Feature> tokenFeats = new ArrayList<>();
-        tokenFeats.add(new Feature("EOS"));
-        this.dataWriter.write(new Instance<>("O", tokenFeats));
-      }else{
+      List<Feature> tokenFeats = new ArrayList<>();
+      tokenFeats.add(new Feature("EOS"));
+      if(!this.isTraining()){
         this.timeChunking.createChunks(jcas, tokens, outcomes);
+        this.classifier.classify(tokenFeats);
+      }else{
+        this.dataWriter.write(new Instance<>("O", tokenFeats));
       }
     }
   }
