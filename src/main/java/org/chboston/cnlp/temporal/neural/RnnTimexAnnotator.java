@@ -1,8 +1,10 @@
 package org.chboston.cnlp.temporal.neural;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.ctakes.core.util.DocumentIDAnnotationUtil;
 import org.apache.ctakes.neural.feature.TokensSequenceWithWindowExtractor;
 import org.apache.ctakes.temporal.ae.TemporalEntityAnnotator_ImplBase;
@@ -48,12 +50,13 @@ public class RnnTimexAnnotator extends TemporalEntityAnnotator_ImplBase {
     // classify tokens within each sentence
     for (Sentence sentence : JCasUtil.selectCovered(jcas, Sentence.class, segment)) {
       List<BaseToken> tokens = JCasUtil.selectCovered(jcas, BaseToken.class, sentence);
-      
       // during training, the list of all outcomes for the tokens
-      List<String> outcomes;
+      List<String> outcomes = new ArrayList<>();
+      // label for start token:
+      outcomes.add("O");
       if (this.isTraining()) {
         List<TimeMention> times = JCasUtil.selectCovered(jcas, TimeMention.class, sentence);
-        outcomes = this.timeChunking.createOutcomes(jcas, tokens, times);
+        outcomes.addAll(this.timeChunking.createOutcomes(jcas, tokens, times));
       }
       // during prediction, the list of outcomes predicted so far
       else {
@@ -62,29 +65,46 @@ public class RnnTimexAnnotator extends TemporalEntityAnnotator_ImplBase {
       
       // First write an instance for each token -- here just a label and the token (label at training time only)
       int tokenIndex = 0;
+
+      List<Feature> tokenFeats= new ArrayList<>();
+      tokenFeats.add(new Feature("START"));
+      
       for (BaseToken token : tokens) {
-        List<Feature> tokenFeats= new ArrayList<>();
+        
+//        if(tokenIndex > 0){
+//          tokenFeats.add(new Feature(tokens.get(tokenIndex-1).getCoveredText().toLowerCase()));
+//        }else{
+//          tokenFeats.add(new Feature("OOB_LEFT"));
+//        }
+        
         tokenFeats.add(new Feature(token.getCoveredText().toLowerCase()));
+        
+//        if(tokenIndex+1 < tokens.size()){
+//          tokenFeats.add(new Feature(tokens.get(tokenIndex+1).getCoveredText().toLowerCase()));
+//        }else{
+//          tokenFeats.add(new Feature("OOB_RIGHT"));
+//        }
 //        tokenFeats.add(new Feature(String.format("%s", tokenIndex==0 ? "O" : outcomes.get(tokenIndex-1))));
         
-        if(this.isTraining()){
-          String outcome = outcomes.get(tokenIndex);
-          this.dataWriter.write(new Instance<>(outcome, tokenFeats));
-        }else{
-          outcomes.add(this.classifier.classify(tokenFeats));
-        }
+//        if(this.isTraining()){
+////          String outcome = outcomes.get(tokenIndex);
+//          outcomes.add(outcomes.get(tokenIndex));
+////          this.dataWriter.write(new Instance<>(outcome, tokenFeats));
+//        }else{
+//          outcomes.add(this.classifier.classify(tokenFeats));
+//        }
         tokenIndex++;
       }
       
       // At the end of sentence, write a dummy instance to indicate EOS, at test time
       // compile the labels into chunks and build time expressions:
-      List<Feature> tokenFeats = new ArrayList<>();
       tokenFeats.add(new Feature("EOS"));
+      outcomes.add("O");
       if(!this.isTraining()){
-        this.timeChunking.createChunks(jcas, tokens, outcomes);
-        this.classifier.classify(tokenFeats);
+        String labels = this.classifier.classify(tokenFeats);
+        this.timeChunking.createChunks(jcas, tokens, Arrays.asList(labels.split(" ")).subList(1, tokenFeats.size()-1));
       }else{
-        this.dataWriter.write(new Instance<>("O", tokenFeats));
+        this.dataWriter.write(new Instance<>(StringUtils.join(outcomes, " "), tokenFeats));
       }
     }
   }
