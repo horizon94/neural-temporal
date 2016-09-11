@@ -24,7 +24,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.logging.Level;
 
-import org.apache.ctakes.neural.KerasStringFeatureDataWriter;
 import org.apache.ctakes.neural.ScriptStringFeatureDataWriter;
 import org.apache.ctakes.temporal.eval.EvaluationOfAnnotationSpans_ImplBase;
 import org.apache.ctakes.temporal.eval.Evaluation_ImplBase;
@@ -134,7 +133,7 @@ public class EvaluationOfTimeSpans extends EvaluationOfAnnotationSpans_ImplBase 
 	      RnnTimexAnnotator.PARAM_IS_TRAINING,
 	      true,
 	      DefaultDataWriterFactory.PARAM_DATA_WRITER_CLASS_NAME,
-	      KerasStringFeatureDataWriter.class,
+	      ScriptStringFeatureDataWriter.class,
 	      DirectoryDataWriterFactory.PARAM_OUTPUT_DIRECTORY,
 	      this.getModelDirectory(directory),
 	      ScriptStringFeatureDataWriter.PARAM_SCRIPT_DIR,
