@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang.StringUtils;
 import org.apache.ctakes.core.util.DocumentIDAnnotationUtil;
 import org.apache.ctakes.neural.feature.TokensSequenceWithWindowExtractor;
 import org.apache.ctakes.temporal.ae.TemporalEntityAnnotator_ImplBase;
@@ -64,36 +64,11 @@ public class RnnTimexAnnotator extends TemporalEntityAnnotator_ImplBase {
       }
       
       // First write an instance for each token -- here just a label and the token (label at training time only)
-      int tokenIndex = 0;
-
       List<Feature> tokenFeats= new ArrayList<>();
       tokenFeats.add(new Feature("START"));
       
       for (BaseToken token : tokens) {
-        
-//        if(tokenIndex > 0){
-//          tokenFeats.add(new Feature(tokens.get(tokenIndex-1).getCoveredText().toLowerCase()));
-//        }else{
-//          tokenFeats.add(new Feature("OOB_LEFT"));
-//        }
-        
-        tokenFeats.add(new Feature(token.getCoveredText().toLowerCase()));
-        
-//        if(tokenIndex+1 < tokens.size()){
-//          tokenFeats.add(new Feature(tokens.get(tokenIndex+1).getCoveredText().toLowerCase()));
-//        }else{
-//          tokenFeats.add(new Feature("OOB_RIGHT"));
-//        }
-//        tokenFeats.add(new Feature(String.format("%s", tokenIndex==0 ? "O" : outcomes.get(tokenIndex-1))));
-        
-//        if(this.isTraining()){
-////          String outcome = outcomes.get(tokenIndex);
-//          outcomes.add(outcomes.get(tokenIndex));
-////          this.dataWriter.write(new Instance<>(outcome, tokenFeats));
-//        }else{
-//          outcomes.add(this.classifier.classify(tokenFeats));
-//        }
-        tokenIndex++;
+        tokenFeats.add(new Feature(token.getCoveredText().toLowerCase()));        
       }
       
       // At the end of sentence, write a dummy instance to indicate EOS, at test time
