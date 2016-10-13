@@ -95,6 +95,7 @@ public class EvaluationOfTimeSpans extends EvaluationOfAnnotationSpans_ImplBase 
 		evaluation.prepareXMIsFor(patientSets);
 		evaluation.skipTrain = options.getSkipTrain();
 		evaluation.printErrors = options.getPrintErrors();
+		evaluation.kernelParams = new String[]{options.getKernelParams()};
 		if(options.getI2B2Output()!=null) evaluation.setI2B2Output(options.getI2B2Output() + "/RnnTimexAnnotator");
 		String name = String.format("RnnTimexAnnotator.errors");
 		evaluation.setLogging(Level.FINE, new File("target/eval", name));
@@ -142,7 +143,7 @@ public class EvaluationOfTimeSpans extends EvaluationOfAnnotationSpans_ImplBase 
 
 	@Override
 	protected void trainAndPackage(File directory) throws Exception {
-		JarClassifierBuilder.trainAndPackage(this.getModelDirectory(directory));
+		JarClassifierBuilder.trainAndPackage(this.getModelDirectory(directory), this.kernelParams);
 	}
 
 	@Override
