@@ -85,7 +85,7 @@ import org.cleartk.ml.jar.GenericJarClassifierFactory;
 //import org.cleartk.ml.feature.transform.InstanceDataWriter;//for normalization
 //import org.cleartk.ml.feature.transform.InstanceStream;//for normalization
 import org.cleartk.ml.jar.JarClassifierBuilder;
-import org.cleartk.ml.python.keras.KerasStringOutcomeDataWriter;
+import org.cleartk.ml.script.ScriptStringOutcomeDataWriter;
 //import org.cleartk.ml.tksvmlight.TkSvmLightStringOutcomeDataWriter;
 import org.cleartk.ml.tksvmlight.model.CompositeKernel.ComboOperator;
 import org.cleartk.util.ViewUriUtil;
@@ -338,7 +338,7 @@ EvaluationOfTemporalRelations_ImplBase{
 							CleartkAnnotator.PARAM_IS_TRAINING,
 							true,
 							DefaultDataWriterFactory.PARAM_DATA_WRITER_CLASS_NAME,
-							KerasStringOutcomeDataWriter.class,
+							ScriptStringOutcomeDataWriter.class,
 							DirectoryDataWriterFactory.PARAM_OUTPUT_DIRECTORY,
 							new File(directory,"event-time"),
 							ScriptStringFeatureDataWriter.PARAM_SCRIPT_DIR,

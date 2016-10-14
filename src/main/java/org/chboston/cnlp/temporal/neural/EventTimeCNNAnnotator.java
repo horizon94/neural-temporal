@@ -2,13 +2,12 @@ package org.chboston.cnlp.temporal.neural;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import org.apache.ctakes.temporal.ae.TemporalRelationExtractorAnnotator.IdentifiedAnnotationPair;
-import org.apache.ctakes.temporal.nn.eventTimeRelationPrinter;
+import org.apache.ctakes.temporal.nn.data.EventTimeRelPrinter;
 import org.apache.ctakes.typesystem.type.relation.BinaryTextRelation;
 import org.apache.ctakes.typesystem.type.relation.RelationArgument;
 import org.apache.ctakes.typesystem.type.relation.TemporalTextRelation;
@@ -71,10 +70,10 @@ public class EventTimeCNNAnnotator extends CleartkAnnotator<String> {
 				String context;
 				if(arg2.getBegin() < arg1.getBegin()) {
 					// ... time ... event ... scenario
-					context = eventTimeRelationPrinter.getTokensBetween(jCas, sentence, arg2, "t", arg1, "e", 2);  
+					context = EventTimeRelPrinter.getTokenContext(jCas, sentence, arg2, "t", arg1, "e", 2);  
 				} else {
 					// ... event ... time ... scenario
-					context = eventTimeRelationPrinter.getTokensBetween(jCas, sentence, arg1, "e", arg2, "t", 2);
+					context = EventTimeRelPrinter.getTokenContext(jCas, sentence, arg1, "e", arg2, "t", 2);
 				}
 
 				//derive features based on context:
