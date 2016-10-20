@@ -338,11 +338,11 @@ EvaluationOfTemporalRelations_ImplBase{
 							CleartkAnnotator.PARAM_IS_TRAINING,
 							true,
 							DefaultDataWriterFactory.PARAM_DATA_WRITER_CLASS_NAME,
-							ScriptStringOutcomeDataWriter.class,
+							ScriptStringFeatureDataWriter.class,
 							DirectoryDataWriterFactory.PARAM_OUTPUT_DIRECTORY,
 							new File(directory,"event-time"),
 							ScriptStringFeatureDataWriter.PARAM_SCRIPT_DIR,
-							"scripts/keras/"
+							"scripts/keras/docTimeRel"
 							) );
 
 			//				EventTimeSelfRelationAnnotator.createDataWriterDescription(

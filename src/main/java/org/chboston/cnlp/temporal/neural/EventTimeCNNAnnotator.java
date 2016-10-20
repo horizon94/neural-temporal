@@ -1,20 +1,29 @@
 package org.chboston.cnlp.temporal.neural;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Scanner;
 
+import org.apache.ctakes.core.resource.FileLocator;
 import org.apache.ctakes.temporal.ae.TemporalRelationExtractorAnnotator.IdentifiedAnnotationPair;
 import org.apache.ctakes.temporal.nn.data.EventTimeRelPrinter;
 import org.apache.ctakes.typesystem.type.relation.BinaryTextRelation;
 import org.apache.ctakes.typesystem.type.relation.RelationArgument;
 import org.apache.ctakes.typesystem.type.relation.TemporalTextRelation;
+import org.apache.ctakes.typesystem.type.syntax.BaseToken;
 import org.apache.ctakes.typesystem.type.textsem.EventMention;
 import org.apache.ctakes.typesystem.type.textsem.IdentifiedAnnotation;
 import org.apache.ctakes.typesystem.type.textsem.TimeMention;
 import org.apache.ctakes.typesystem.type.textspan.Sentence;
+import org.apache.ctakes.utils.distsem.WordEmbeddings;
+import org.apache.ctakes.utils.distsem.WordVectorReader;
 import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
@@ -22,6 +31,7 @@ import org.apache.uima.jcas.tcas.Annotation;
 import org.cleartk.ml.CleartkAnnotator;
 import org.cleartk.ml.Feature;
 import org.cleartk.ml.Instance;
+import org.cleartk.ml.feature.extractor.CleartkExtractorException;
 import org.cleartk.util.ViewUriUtil;
 
 import com.google.common.collect.Lists;
@@ -29,9 +39,16 @@ import com.google.common.collect.Lists;
 public class EventTimeCNNAnnotator extends CleartkAnnotator<String> {
 
 	public static final String NO_RELATION_CATEGORY = "none";//-NONE-
+	
+	public static Map<String, String> timex_idx;
 
 	public EventTimeCNNAnnotator() {
-		// TODO Auto-generated constructor stub
+		final String timexIdxMapFile = "org/apache/ctakes/temporal/timex_idx.txt";
+		try {
+			timex_idx = TimexIdxReader(FileLocator.getAsStream(timexIdxMapFile));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 
 	@Override
@@ -70,10 +87,10 @@ public class EventTimeCNNAnnotator extends CleartkAnnotator<String> {
 				String context;
 				if(arg2.getBegin() < arg1.getBegin()) {
 					// ... time ... event ... scenario
-					context = EventTimeRelPrinter.getTokenContext(jCas, sentence, arg2, "t", arg1, "e", 2);  
+					context = getTokenContext(jCas, sentence, arg2, "t", arg1, "e", 2);  
 				} else {
 					// ... event ... time ... scenario
-					context = EventTimeRelPrinter.getTokenContext(jCas, sentence, arg1, "e", arg2, "t", 2);
+					context = getTokenContext(jCas, sentence, arg1, "e", arg2, "t", 2);
 				}
 
 				//derive features based on context:
@@ -126,33 +143,80 @@ public class EventTimeCNNAnnotator extends CleartkAnnotator<String> {
 	}
 
 	/**
-	 * original way of getting label
-	 * @param relationLookup
-	 * @param arg1
-	 * @param arg2
-	 * @return
+	 * Print words from left to right.
+	 * @param contextSize number of tokens to include on the left of arg1 and on the right of arg2
 	 */
-	//	protected String getRelationCategory(
-	//			Map<List<Annotation>, BinaryTextRelation> relationLookup,
-	//			IdentifiedAnnotation arg1,
-	//			IdentifiedAnnotation arg2) {
-	//		BinaryTextRelation relation = relationLookup.get(Arrays.asList(arg1, arg2));
-	//		String category = null;
-	//		if (relation != null) {
-	//			category = relation.getCategory();
-	//		} else {
-	//			relation = relationLookup.get(Arrays.asList(arg2, arg1));
-	//			if (relation != null) {
-	//				if(relation.getCategory().equals("OVERLAP")){
-	//					category = relation.getCategory();
-	//				}else{
-	//					category = relation.getCategory() + "-1";
-	//				}
-	//			}
-	//		}
-	//
-	//		return category;
-	//	}
+	public static String getTokenContext(
+			JCas jCas, 
+			Sentence sent, 
+			Annotation left,
+			String leftType,
+			Annotation right,
+			String rightType,
+			int contextSize) {
+
+		List<String> tokens = new ArrayList<>();
+		for(BaseToken baseToken :  JCasUtil.selectPreceding(jCas, BaseToken.class, left, contextSize)) {
+			if(sent.getBegin() <= baseToken.getBegin()) {
+				tokens.add(baseToken.getCoveredText()); 
+			}
+		}
+		tokens.add("<" + leftType + ">");
+		if (left instanceof TimeMention){
+			String timeWord = left.getCoveredText().toLowerCase().replaceAll("\\r|\\n", " ");
+			if(timex_idx.containsKey(timeWord)){
+				 String idx = timex_idx.get(timeWord);		
+				 tokens.add(idx);
+			}else{
+				tokens.add("<timex_797>");
+			}
+		}else{
+			tokens.add(left.getCoveredText());
+		}
+		tokens.add("</" + leftType + ">");
+		for(BaseToken baseToken : JCasUtil.selectBetween(jCas, BaseToken.class, left, right)) {
+			tokens.add(baseToken.getCoveredText());
+		}
+		tokens.add("<" + rightType + ">");
+		if (right instanceof TimeMention){
+			String timeWord = right.getCoveredText().toLowerCase().replaceAll("\\r|\\n", " ");
+			if(timex_idx.containsKey(timeWord)){
+				 String idx = timex_idx.get(timeWord);		
+				 tokens.add(idx);
+			}else{
+				tokens.add("<timex_797>");
+			}
+		}else{
+			tokens.add(right.getCoveredText());
+		}
+		tokens.add("</" + rightType + ">");
+		for(BaseToken baseToken : JCasUtil.selectFollowing(jCas, BaseToken.class, right, contextSize)) {
+			if(baseToken.getEnd() <= sent.getEnd()) {
+				tokens.add(baseToken.getCoveredText());
+			}
+		}
+
+		return String.join(" ", tokens).replaceAll("[\r\n]", " ");
+	}
+	
+	/*
+	 * read in the timex-idx map
+	 */
+	  
+	  public Map<String, String> TimexIdxReader(InputStream in) throws IOException{
+	    BufferedReader reader = new BufferedReader(new InputStreamReader(in));
+	    Map<String, String> timex_idx = new HashMap<>();
+	    String line = null;
+	    while((line = reader.readLine()) != null){
+	      line = line.trim();
+	      int sep = line.lastIndexOf("|");
+	      String timex = line.substring(0, sep);
+	      String idx = line.substring(sep+1);
+	      timex_idx.put(timex, idx);
+	    }
+	    reader.close();
+	    return timex_idx;
+	  }
 
 	/** Dima's way of getting lables
 	 * @param relationLookup
