@@ -6,7 +6,7 @@ export PYTHONPATH=$PYTHONPATH:$(dirname $0)/../../../../ctakes/ctakes-neural/scr
 
 subdir=`dirname $0`
 
-python $(dirname $0)/dimaCNN_train.py $* $subdir
+python $(dirname $0)/preEmbeddingCNN_train.py $* $subdir
 
 ret=$?
 
