@@ -40,14 +40,22 @@ public class EventTimeCNNAnnotator extends CleartkAnnotator<String> {
 
 	public static final String NO_RELATION_CATEGORY = "none";//-NONE-
 	
-	public static Map<String, String> timex_idx;
+	public static Map<String, String> timex_tag;
+	
+	public static Map<String, Integer> timex_idx;
+	
+	private static boolean usePreTrainedTimex = true;
 
 	public EventTimeCNNAnnotator() {
-		final String timexIdxMapFile = "org/apache/ctakes/temporal/timex_idx.txt";
-		try {
-			timex_idx = TimexIdxReader(FileLocator.getAsStream(timexIdxMapFile));
-		} catch (IOException e) {
-			e.printStackTrace();
+		if(usePreTrainedTimex){
+			final String timexIdxMapFile = "org/apache/ctakes/temporal/timex_idx.txt";
+			try {
+				timex_tag = TimexIdxReader(FileLocator.getAsStream(timexIdxMapFile));
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}else{
+			timex_idx = new HashMap<>();
 		}
 	}
 
@@ -87,10 +95,12 @@ public class EventTimeCNNAnnotator extends CleartkAnnotator<String> {
 				String context;
 				if(arg2.getBegin() < arg1.getBegin()) {
 					// ... time ... event ... scenario
-					context = getTokenContext(jCas, sentence, arg2, "t", arg1, "e", 2);  
+//					context = getTokenTimexContext(jCas, sentence, arg2, "t", arg1, "e", 5);  
+					context = getTokenContext(jCas, sentence, arg2, "t", arg1, "e", 5);
 				} else {
 					// ... event ... time ... scenario
-					context = getTokenContext(jCas, sentence, arg1, "e", arg2, "t", 2);
+//					context = getTokenTimexContext(jCas, sentence, arg1, "e", arg2, "t", 5);
+					context = getTokenContext(jCas, sentence, arg1, "e", arg2, "t", 5);
 				}
 
 				//derive features based on context:
@@ -142,6 +152,132 @@ public class EventTimeCNNAnnotator extends CleartkAnnotator<String> {
 		}
 	}
 
+	private String getTokenTimexContext(JCas jCas, Sentence sentence, IdentifiedAnnotation arg1, String leftType,
+			IdentifiedAnnotation arg2, String rightType, int contextSize) {
+		List<String> tokens = new ArrayList<>();
+		//select prior context:
+		List<TimeMention> preTimex = JCasUtil.selectCovered(jCas, TimeMention.class, sentence.getBegin(), arg1.getBegin());
+		List<TimeMention> betweenTimex = JCasUtil.selectCovered(jCas, TimeMention.class, arg1.getEnd(), arg2.getBegin());
+		List<TimeMention> afterTimex = JCasUtil.selectCovered(jCas, TimeMention.class, arg2.getEnd(), sentence.getEnd());
+		
+		TimeMention coveringTimex = null;
+		for(BaseToken baseToken :  JCasUtil.selectPreceding(jCas, BaseToken.class, arg1, contextSize)) {
+			if(sentence.getBegin() <= baseToken.getBegin()) {
+				TimeMention currentTimex = findCoveringTimex(baseToken, preTimex);
+				if(currentTimex == null){
+					tokens.add(baseToken.getCoveredText()); 
+					int idx = add2TimexIdxMap(coveringTimex);
+					if(idx >=0 ){
+						tokens.add(("<timex_"+idx+">"));
+						coveringTimex = null;
+					}
+				}else{//current timex is not null
+					if( coveringTimex != currentTimex){
+						int idx = add2TimexIdxMap(coveringTimex);
+						if(idx >=0 ){
+							tokens.add(("<timex_"+idx+">"));
+						}
+						coveringTimex = currentTimex;
+					}
+				}
+			}
+		}
+		
+		//get arg1:
+		tokens.add("<" + leftType + ">");
+		if (arg1 instanceof TimeMention){
+			int idx = add2TimexIdxMap((TimeMention)arg1);
+			if(idx >=0 ){
+				tokens.add(("<timex_"+idx+">"));
+			}
+		}else{
+			tokens.add(arg1.getCoveredText());
+		}
+		tokens.add("</" + leftType + ">");
+		
+		//get between:
+		coveringTimex = null;
+		for(BaseToken baseToken : JCasUtil.selectBetween(jCas, BaseToken.class, arg1, arg2)) {
+			TimeMention currentTimex = findCoveringTimex(baseToken, betweenTimex);
+			if(currentTimex == null){
+				tokens.add(baseToken.getCoveredText()); 
+				int idx = add2TimexIdxMap(coveringTimex);
+				if(idx >=0 ){
+					tokens.add(("<timex_"+idx+">"));
+					coveringTimex = null;
+				}
+			}else{//current timex is not null
+				if( coveringTimex != currentTimex){
+					int idx = add2TimexIdxMap(coveringTimex);
+					if(idx >=0 ){
+						tokens.add(("<timex_"+idx+">"));
+					}
+					coveringTimex = currentTimex;
+				}
+			}
+		}
+		
+		//arg2
+		tokens.add("<" + rightType + ">");
+		if (arg2 instanceof TimeMention){
+			int idx = add2TimexIdxMap((TimeMention)arg2);
+			if(idx >=0 ){
+				tokens.add(("<timex_"+idx+">"));
+			}
+		}else{
+			tokens.add(arg2.getCoveredText());
+		}
+		tokens.add("</" + rightType + ">");
+		
+		//get after:
+		coveringTimex = null;
+		for(BaseToken baseToken : JCasUtil.selectFollowing(jCas, BaseToken.class, arg2, contextSize)) {
+			if(baseToken.getEnd() <= sentence.getEnd()) {
+				TimeMention currentTimex = findCoveringTimex(baseToken, afterTimex);
+				if(currentTimex == null){
+					tokens.add(baseToken.getCoveredText()); 
+					int idx = add2TimexIdxMap(coveringTimex);
+					if(idx >=0 ){
+						tokens.add(("<timex_"+idx+">"));
+						coveringTimex = null;
+					}
+				}else{//current timex is not null
+					if( coveringTimex != currentTimex){
+						int idx = add2TimexIdxMap(coveringTimex);
+						if(idx >=0 ){
+							tokens.add(("<timex_"+idx+">"));
+						}
+						coveringTimex = currentTimex;
+					}
+				}
+			}
+		}
+		
+		return String.join(" ", tokens).replaceAll("[\r\n]", " ");
+	}
+
+	private int add2TimexIdxMap(TimeMention timex) {
+		if(timex == null) return -1;
+		String timeWord = timex.getCoveredText().toLowerCase().replaceAll("\\r|\\n", " ");
+		int idx = 0;
+		if(timex_idx.containsKey(timeWord)){
+			 idx = timex_idx.get(timeWord);		
+		}else{
+			idx = timex_idx.size();
+			timex_idx.put(timeWord, idx);
+		}
+		return idx;
+	}
+
+	private TimeMention findCoveringTimex(BaseToken baseToken, List<TimeMention> timexs) {
+		for(TimeMention timex : timexs){
+			if(timex.getBegin()<= baseToken.getBegin() && timex.getEnd() >= baseToken.getEnd()){
+				return timex;
+			}
+		}
+		return null;
+	}
+
 	/**
 	 * Print words from left to right.
 	 * @param contextSize number of tokens to include on the left of arg1 and on the right of arg2
@@ -164,8 +300,8 @@ public class EventTimeCNNAnnotator extends CleartkAnnotator<String> {
 		tokens.add("<" + leftType + ">");
 		if (left instanceof TimeMention){
 			String timeWord = left.getCoveredText().toLowerCase().replaceAll("\\r|\\n", " ");
-			if(timex_idx.containsKey(timeWord)){
-				 String idx = timex_idx.get(timeWord);		
+			if(timex_tag.containsKey(timeWord)){
+				 String idx = timex_tag.get(timeWord);		
 				 tokens.add(idx);
 			}else{
 				tokens.add("<timex_797>");
@@ -180,8 +316,8 @@ public class EventTimeCNNAnnotator extends CleartkAnnotator<String> {
 		tokens.add("<" + rightType + ">");
 		if (right instanceof TimeMention){
 			String timeWord = right.getCoveredText().toLowerCase().replaceAll("\\r|\\n", " ");
-			if(timex_idx.containsKey(timeWord)){
-				 String idx = timex_idx.get(timeWord);		
+			if(timex_tag.containsKey(timeWord)){
+				 String idx = timex_tag.get(timeWord);		
 				 tokens.add(idx);
 			}else{
 				tokens.add("<timex_797>");
@@ -298,6 +434,14 @@ public class EventTimeCNNAnnotator extends CleartkAnnotator<String> {
 		}
 
 		return pairs;
+	}
+
+	public static boolean ifUsePreTrainedTimex() {
+		return usePreTrainedTimex;
+	}
+
+	public void setUsePreTrainedTimex(boolean usePreTrainedTimex) {
+		EventTimeCNNAnnotator.usePreTrainedTimex = usePreTrainedTimex;
 	}
 
 }
